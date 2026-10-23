@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: monopoly-online
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
