@@ -1,63 +1,1419 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Monopoly — Friends Edition</title>
-<style>
-:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#0c1522;color:#edf4ff}*{box-sizing:border-box}body{margin:0}header{padding:18px 24px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #304057}h1{font-size:23px;margin:0}small,.muted{color:#a9bbd0}main{display:grid;grid-template-columns:minmax(540px,1fr) 340px;gap:20px;padding:20px;max-width:1500px;margin:auto}.board{display:grid;grid-template-columns:repeat(11,1fr);grid-template-rows:repeat(11,1fr);aspect-ratio:1;background:#c7e2cf;border:3px solid #426a59;gap:2px;color:#15291e}.space{background:#e6f0df;position:relative;min-width:0;cursor:pointer;overflow:hidden;font-size:clamp(8px,.8vw,12px);text-align:center;padding:3px;display:flex;flex-direction:column;justify-content:space-between}.space:hover{outline:3px solid #e8a521;z-index:2}.stripe{height:9px;flex-shrink:0}.tokens{display:flex;justify-content:center;gap:2px;flex-wrap:wrap}.token{background:var(--c);color:white;border:1px solid white;border-radius:50%;font-size:10px;width:17px;height:17px;display:inline-grid;place-items:center;box-shadow:0 1px 3px #0008}.center{grid-column:2/11;grid-row:2/11;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:20px;background:radial-gradient(#edf6e9,#b4d7c0)}.logo{background:#c73638;color:white;padding:12px 24px;transform:rotate(-7deg);font-weight:900;font-size:clamp(22px,3.5vw,52px);letter-spacing:2px;box-shadow:3px 4px #0003}.dice{font-size:48px;letter-spacing:12px}.center h2{margin:0}.card,.panel{background:#172538;border:1px solid #304057;border-radius:12px;padding:16px;margin-bottom:12px}.players{display:grid;gap:8px}.player{padding:10px;border-radius:8px;background:#0f1c2c;border-left:5px solid var(--c)}.active{outline:2px solid #f2c14e}.row{display:flex;justify-content:space-between;gap:10px;align-items:center}button,input,select{font:inherit;border-radius:7px;padding:10px;border:1px solid #485c74;background:#22364e;color:white}button{cursor:pointer}button:hover:not(:disabled){filter:brightness(1.2)}button:disabled{opacity:.4;cursor:not-allowed}.primary{background:#23805d;border-color:#45b58a}.danger{background:#91383e}.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}#log{height:220px;overflow:auto;font-size:13px;line-height:1.5}#log div{padding:5px 0;border-bottom:1px solid #304057}dialog{background:#172538;color:#edf4ff;border:1px solid #60738a;border-radius:14px;width:min(520px,94vw);max-height:90vh;overflow:auto}dialog::backdrop{background:#000b}label{display:block;margin:12px 0 5px}input,select{width:100%}.property{font-size:13px;padding:8px 0;border-bottom:1px solid #354459}.badge{font-size:11px;color:#f4d178}.setup-names{display:grid;gap:8px;margin:12px 0}.help{font-size:13px;line-height:1.6}@media(max-width:950px){main{grid-template-columns:1fr;padding:8px;gap:10px}.board{min-width:0}.space{font-size:8px;padding:2px}.stripe{height:5px}.token{width:13px;height:13px;font-size:8px}.center{gap:10px}.dice{font-size:32px}aside{display:grid;grid-template-columns:1fr 1fr;gap:8px}.panel{margin:0}.wide{grid-column:1/-1}header{padding:12px}}@media(max-width:500px){aside{display:block}.panel{margin-bottom:10px}.center p{font-size:12px}.space .price{font-size:7px}}
-</style></head><body>
-<header><div><h1>Monopoly <small>Friends Edition</small></h1><small>Local pass-and-play · 2–6 players</small></div><button onclick="showRules()">Rules</button></header>
-<main><section id="board" class="board"></section><aside><section class="panel"><div class="row"><h3 style="margin:0">Players</h3><button onclick="newGame()">New game</button></div><div id="players" class="players" style="margin-top:12px"></div></section><section class="panel"><h3 id="turnTitle">Your turn</h3><div id="status"></div><div class="actions"><button class="primary" id="roll" onclick="roll()">Roll dice</button><button id="end" onclick="endTurn()">End turn</button><button id="bail" onclick="bail()">Pay $50 bail</button><button id="jailcard" onclick="useCard()">Use jail card</button><button id="trade" onclick="tradeDialog()">Trade</button><button id="bankrupt" class="danger" onclick="bankrupt()">Declare bankruptcy</button></div></section><section class="panel wide"><h3>Your properties</h3><div id="portfolio"></div><p class="muted help">Click any board space for details. Manage houses and mortgages from your properties.</p></section><section class="panel wide"><h3>Game log</h3><div id="log"></div></section></aside></main>
-<dialog id="modal"><div id="modalBody"></div></dialog>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Monopoly Game Engine</title>
+</head>
+<body>
+    <dialog id="modal">
+        <div id="modalBody"></div>
+    </dialog>
+
 <script>
-const names=['GO','Mediterranean Avenue','Community Chest','Baltic Avenue','Income Tax','Reading Railroad','Oriental Avenue','Chance','Vermont Avenue','Connecticut Avenue','Jail / Just Visiting','St. Charles Place','Electric Company','States Avenue','Virginia Avenue','Pennsylvania Railroad','St. James Place','Community Chest','Tennessee Avenue','New York Avenue','Free Parking','Kentucky Avenue','Chance','Indiana Avenue','Illinois Avenue','B&O Railroad','Atlantic Avenue','Ventnor Avenue','Water Works','Marvin Gardens','Go To Jail','Pacific Avenue','North Carolina Avenue','Community Chest','Pennsylvania Avenue','Short Line Railroad','Chance','Park Place','Luxury Tax','Boardwalk'];
-const groups=[{color:'#885438',ids:[1,3],cost:50},{color:'#83c9e8',ids:[6,8,9],cost:50},{color:'#d64f9b',ids:[11,13,14],cost:100},{color:'#ec9232',ids:[16,18,19],cost:100},{color:'#db3c41',ids:[21,23,24],cost:150},{color:'#e6cb37',ids:[26,27,29],cost:150},{color:'#31935b',ids:[31,32,34],cost:200},{color:'#3153ae',ids:[37,39],cost:200}];
-const prices={1:60,3:60,5:200,6:100,8:100,9:120,11:140,12:150,13:140,14:160,15:200,16:180,18:180,19:200,21:220,23:220,24:240,25:200,26:260,27:260,28:150,29:280,31:300,32:300,34:320,35:200,37:350,39:400};
-const rents={1:[2,10,30,90,160,250],3:[4,20,60,180,320,450],6:[6,30,90,270,400,550],8:[6,30,90,270,400,550],9:[8,40,100,300,450,600],11:[10,50,150,450,625,750],13:[10,50,150,450,625,750],14:[12,60,180,500,700,900],16:[14,70,200,550,750,950],18:[14,70,200,550,750,950],19:[16,80,220,600,800,1000],21:[18,90,250,700,875,1050],23:[18,90,250,700,875,1050],24:[20,100,300,750,925,1100],26:[22,110,330,800,975,1150],27:[22,110,330,800,975,1150],29:[24,120,360,850,1025,1200],31:[26,130,390,900,1100,1275],32:[26,130,390,900,1100,1275],34:[28,150,450,1000,1200,1400],37:[35,175,500,1100,1300,1500],39:[50,200,600,1400,1700,2000]};
-const colors=['#d34c56','#3387cf','#a56cdb','#d28e22','#219a83','#c06499'];
-let s=null, pending=null, tradeProposal=null;
-const $=id=>document.getElementById(id), esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), money=n=>'$'+n, p=()=>s.players[s.turn], group=i=>groups.find(g=>g.ids.includes(i)), own=i=>s.owners[i], prop=i=>s.props[i], alive=()=>s.players.filter(x=>!x.out), owner=i=>s.players[own(i)];
-function save(){try{localStorage.setItem('monopoly-friends-v1',JSON.stringify(s))}catch(e){}}
-function log(t){s.log.unshift(t);s.log=s.log.slice(0,150)}
-function modal(body){$('modalBody').innerHTML=body;if(!$('modal').open)$('modal').showModal()}
-function closeModal(){$('modal').close()}
-$('modal').addEventListener('cancel',e=>e.preventDefault());
-function newGame(){modal(`<h2>Start a new game</h2><p>Share this screen and take turns. A new game replaces the saved game.</p><label>Players</label><select id="count" onchange="nameFields()">${[2,3,4,5,6].map(n=>`<option>${n}</option>`).join('')}</select><div id="nameFields" class="setup-names"></div><button class="primary" onclick="start()">Start game</button> ${s?'<button onclick="closeModal()">Cancel</button>':''}`);nameFields()}
-function nameFields(){$('nameFields').innerHTML=Array.from({length:+$('count').value},(_,i)=>`<input id="name${i}" maxlength="24" placeholder="Player ${i+1}" aria-label="Player ${i+1} name">`).join('')}
-function shuffle(a){for(let i=a.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
-function start(){s={players:Array.from({length:+$('count').value},(_,i)=>({name:$('name'+i).value.trim()||'Player '+(i+1),cash:1500,pos:0,jail:false,tries:0,cards:0,out:false,color:colors[i]})),turn:0,owners:{},props:{},phase:'roll',doubles:0,dice:[1,1],lastRoll:2,creditor:null,log:[],chance:shuffle(Array.from({length:12},(_,i)=>i)),chest:shuffle(Array.from({length:12},(_,i)=>i)),winner:null};Object.keys(prices).forEach(i=>{s.owners[i]=null;s.props[i]={houses:0,mort:false}});pending=null;closeModal();log('Game started. Everyone receives $1,500.');render()}
-function position(i){if(i<=10)return [11,11-i];if(i<=20)return [21-i,1];if(i<=30)return [1,i-19];return [i-29,11]}
-function monopoly(i,id= s.turn){let g=group(i);return g&&g.ids.every(j=>own(j)===id)}
-function rent(i,total=s.lastRoll){if(prop(i).mort)return 0;if([5,15,25,35].includes(i)){let n=[5,15,25,35].filter(j=>own(j)===own(i)).length;return 25*2**(n-1)}if([12,28].includes(i))return total*([12,28].every(j=>own(j)===own(i))?10:4);let h=prop(i).houses;return rents[i][h]*(h===0&&monopoly(i,own(i))?2:1)}
-function render(){if(!s)return;let b=$('board');b.innerHTML='';names.forEach((name,i)=>{let [r,c]=position(i),g=group(i),o=own(i),el=document.createElement('div');el.className='space';el.style.gridRow=r;el.style.gridColumn=c;el.onclick=()=>details(i);el.innerHTML=`<div class="stripe" style="background:${g?g.color:'transparent'}"></div><div>${esc(name)}</div><div class="price">${prices[i]?money(prices[i]):''}${o!=null?` <span style="color:${s.players[o].color}">●</span>`:''}${prop(i)?.mort?' Ⓜ':''}${prop(i)?.houses?' '+(prop(i).houses===5?'🏨':'⌂'.repeat(prop(i).houses)):''}</div><div class="tokens">${s.players.map((x,k)=>!x.out&&x.pos===i?`<span class="token" style="--c:${x.color}" title="${esc(x.name)}">${k+1}</span>`:'').join('')}</div>`;b.append(el)});let center=document.createElement('div');center.className='center';center.innerHTML=`<div class="logo">MONOPOLY</div><p>Buy. Build. Trade. Win.</p><div class="dice">${s.dice.map(d=>'⚀⚁⚂⚃⚄⚅'[d-1]).join('')}</div><h2>${esc(s.winner!=null?s.players[s.winner].name+' wins!':p().name+"’s turn")}</h2><p>${s.winner!=null?'Last player standing.':s.phase==='debt'?'Raise cash to settle your debt.':s.phase==='roll'?'Roll the dice to move.':'Finish managing your properties, then end your turn.'}</p><small style="color:#365440">Progress saves automatically in this browser.</small>`;b.append(center);
-$('players').innerHTML=s.players.map((x,i)=>`<div class="player ${i===s.turn?'active':''}" style="--c:${x.color}"><div class="row"><strong>${esc(x.name)}</strong><span>${money(x.cash)}</span></div><small>${x.out?'Bankrupt':names[x.pos]+(x.jail?' · In jail':'')} · ${Object.keys(prices).filter(j=>own(j)===i).length} properties${x.cards?' · '+x.cards+' jail card(s)':''}</small></div>`).join('');$('turnTitle').textContent=s.winner!=null?'Game over':p().name+"’s turn";$('status').textContent=s.phase==='debt'?'Cash shortfall: '+money(-p().cash)+'. Sell buildings, mortgage, or trade.':p().jail?'In jail · attempt '+(p().tries+1)+' of 3':'At '+names[p().pos];$('roll').disabled=s.phase!=='roll'||s.winner!=null;$('end').disabled=s.phase!=='end'||s.winner!=null;$('bail').hidden=!p().jail||s.phase!=='roll';$('jailcard').hidden=!p().jail||!p().cards||s.phase!=='roll';$('trade').disabled=!!pending||s.winner!=null;$('bankrupt').disabled=s.phase!=='debt';$('portfolio').innerHTML=Object.keys(prices).filter(i=>own(i)===s.turn).map(i=>`<div class="property"><div class="row"><span>${esc(names[i])}${prop(i).mort?' · mortgaged':''}${prop(i).houses?' · '+(prop(i).houses===5?'hotel':prop(i).houses+' houses'):''}</span><button onclick="details(${i})">Manage</button></div></div>`).join('')||'<small>No properties yet.</small>';$('log').innerHTML=s.log.map(t=>'<div>'+esc(t)+'</div>').join('');save()}
-function debit(amount,to=null){p().cash-=amount;if(to!=null)s.players[to].cash+=amount;if(p().cash<0){s.creditor=to;s.resume=s.phase;s.phase='debt'} }
-function settle(){if(s.phase==='debt'&&p().cash>=0){s.phase=s.resume||'end';s.creditor=null;log(p().name+' settled the debt.')}}
-function sendJail(){p().pos=10;p().jail=true;p().tries=0;s.doubles=0;s.phase='end';log(p().name+' goes directly to jail.')}
-function move(n){let old=p().pos;if(old+n>=40){p().cash+=200;log(p().name+' collects $200 for passing GO.')}p().pos=(old+n)%40;log(p().name+' lands on '+names[p().pos]+'.');land()}
-function advance(i){move((i-p().pos+40)%40)}
-function roll(){if(s.phase!=='roll'||pending)return;s.dice=[1+Math.floor(Math.random()*6),1+Math.floor(Math.random()*6)];s.lastRoll=s.dice[0]+s.dice[1];let double=s.dice[0]===s.dice[1];log(p().name+' rolls '+s.dice.join(' + ')+'.');if(p().jail){p().tries++;s.phase='end';if(double){p().jail=false;p().tries=0;log('Doubles! Released from jail.');move(s.lastRoll)}else if(p().tries===3){p().jail=false;p().tries=0;debit(50);log('Third jail attempt: pays $50 and moves.');if(s.phase==='debt'){s.afterDebtMove=s.lastRoll}else move(s.lastRoll)}else log('No doubles. Stays in jail.')}else{if(double)s.doubles++;else s.doubles=0;if(s.doubles===3)sendJail();else{s.phase=double?'roll':'end';move(s.lastRoll)}}render()}
-function land(){let i=p().pos;if(i===30){sendJail();return}if(i===4){let tax=Math.min(200,Math.floor(Math.max(0,p().cash)*.1));debit(tax);log('Income tax: '+money(tax));return}if(i===38){debit(75);log('Luxury tax: $75');return}if([2,17,33].includes(i)){card('chest');return}if([7,22,36].includes(i)){card('chance');return}if(!prices[i])return;if(own(i)==null){pending={type:'purchase',i};purchasePrompt(i)}else if(own(i)!==s.turn&&!prop(i).mort){let amount=rent(i);debit(amount,own(i));log('Pays '+money(amount)+' rent to '+owner(i).name+'.')}}
-function purchasePrompt(i){modal(`<h2>${esc(names[i])}</h2><p>Purchase price: ${money(prices[i])}</p><p>Your cash: ${money(p().cash)}</p><div class="actions"><button class="primary" ${p().cash<prices[i]?'disabled':''} onclick="buy(${i})">Buy property</button><button onclick="auctionStart(${i})">Auction instead</button></div>`)}
-function buy(i){if(!pending||pending.i!==i||p().cash<prices[i])return;p().cash-=prices[i];s.owners[i]=s.turn;log(p().name+' buys '+names[i]+' for '+money(prices[i])+'.');pending=null;closeModal();render()}
-function auctionStart(i){pending={type:'auction',i,bid:0,high:null,active:s.players.map((x,k)=>!x.out&&x.cash>0?k:null).filter(k=>k!=null),who:0};auctionView()}
-function auctionView(){let a=pending;if(a.active.length===0||a.active.length===1&&a.high===a.active[0]){if(a.high!=null){s.players[a.high].cash-=a.bid;s.owners[a.i]=a.high;log(s.players[a.high].name+' wins '+names[a.i]+' at auction for '+money(a.bid)+'.')}else log(names[a.i]+' remains unowned.');pending=null;closeModal();render();return}a.who%=a.active.length;let id=a.active[a.who];if(id===a.high){a.who=(a.who+1)%a.active.length;id=a.active[a.who]}modal(`<h2>Auction: ${esc(names[a.i])}</h2><p>Highest bid: ${money(a.bid)} ${a.high!=null?'by '+esc(s.players[a.high].name):''}</p><h3>${esc(s.players[id].name)} to bid</h3><p>Cash: ${money(s.players[id].cash)}</p><input type="number" id="bid" min="${a.bid+1}" step="1" value="${a.bid+10}"><div class="actions"><button onclick="auctionBid()">Bid</button><button onclick="auctionPass()">Withdraw</button></div>`)}
-function auctionBid(){let a=pending,id=a.active[a.who],v=Number($('bid').value);if(!Number.isInteger(v)||v<=a.bid||v>s.players[id].cash)return alert('Enter a whole-dollar bid above the current bid, within your cash.');a.bid=v;a.high=id;a.who++;auctionView()}
-function auctionPass(){pending.active.splice(pending.who,1);auctionView()}
-function bail(){if(!p().jail||s.phase!=='roll')return;if(p().cash<50)return alert('You need $50 to pay bail.');p().cash-=50;p().jail=false;p().tries=0;log(p().name+' pays $50 bail.');render()}
-function useCard(){if(!p().jail||!p().cards||s.phase!=='roll')return;p().cards--;p().jail=false;p().tries=0;log(p().name+' uses a Get Out of Jail Free card.');render()}
-function endTurn(){if(s.phase!=='end'||pending)return;do{s.turn=(s.turn+1)%s.players.length}while(p().out);s.doubles=0;s.phase='roll';render()}
-function card(deck){let n=s[deck].shift();s[deck].push(n);let text='',action=()=>{};if(deck==='chance'){switch(n){case 0:text='Advance to GO. Collect $200.';action=()=>{p().cash+=200;p().pos=0};break;case 1:text='Advance to Illinois Avenue.';action=()=>advance(24);break;case 2:text='Advance to St. Charles Place.';action=()=>advance(11);break;case 3:text='Take a trip to Reading Railroad.';action=()=>advance(5);break;case 4:text='Advance to Boardwalk.';action=()=>advance(39);break;case 5:text='Go back three spaces.';action=()=>{p().pos=(p().pos+37)%40;land()};break;case 6:text='Go directly to jail.';action=sendJail;break;case 7:text='Bank pays you a dividend of $50.';action=()=>p().cash+=50;break;case 8:text='Pay a $15 speeding fine.';action=()=>debit(15);break;case 9:text='Get Out of Jail Free.';action=()=>p().cards++;break;case 10:text='Your building loan matures. Collect $150.';action=()=>p().cash+=150;break;case 11:text='Repairs: $25 per house, $100 per hotel.';action=()=>repairs(25,100)}}else{switch(n){case 0:text='Advance to GO. Collect $200.';action=()=>{p().cash+=200;p().pos=0};break;case 1:text='Bank error in your favor. Collect $200.';action=()=>p().cash+=200;break;case 2:text='Doctor’s fee. Pay $50.';action=()=>debit(50);break;case 3:text='From sale of stock, collect $50.';action=()=>p().cash+=50;break;case 4:text='Get Out of Jail Free.';action=()=>p().cards++;break;case 5:text='Go directly to jail.';action=sendJail;break;case 6:text='Holiday fund matures. Collect $100.';action=()=>p().cash+=100;break;case 7:text='Income tax refund. Collect $20.';action=()=>p().cash+=20;break;case 8:text='Pay hospital fees of $100.';action=()=>debit(100);break;case 9:text='Pay school fees of $50.';action=()=>debit(50);break;case 10:text='You inherit $100.';action=()=>p().cash+=100;break;case 11:text='Street repairs: $40 per house, $115 per hotel.';action=()=>repairs(40,115)}}log((deck==='chance'?'Chance: ':'Community Chest: ')+text);action()}
-function repairs(h,hotel){let cost=Object.keys(prices).filter(i=>own(i)===s.turn).reduce((a,i)=>a+(prop(i).houses===5?hotel:prop(i).houses*h),0);debit(cost);log('Repair bill: '+money(cost))}
-function details(i){if(pending)return;let g=group(i),o=own(i),x=prop(i);modal(`<h2>${esc(names[i])}</h2>${prices[i]?`<p>Price: ${money(prices[i])} · Owner: ${o==null?'Bank':esc(owner(i).name)}</p><p>Mortgage value: ${money(prices[i]/2)}${x.mort?' · Currently mortgaged':''}</p>${g?`<p>Rent: ${rents[i].map((r,k)=>`${k===0?'Base':k===5?'Hotel':k+' house(s)'} ${money(r)}`).join(' · ')}</p><p>Building cost: ${money(g.cost)} each. Unimproved full sets charge double base rent.</p>`:'<p>Railroad rent: $25 / $50 / $100 / $200 for 1 / 2 / 3 / 4 owned. Utility rent: 4× dice, or 10× with both utilities.</p>'}${o===s.turn&&s.winner==null?`<div class="actions">${g?`<button onclick="build(${i})">Buy house / hotel</button><button onclick="sellBuilding(${i})">Sell building</button>`:''}<button onclick="mortgage(${i})">${x.mort?'Unmortgage':'Mortgage'}</button></div>`:''}`:'<p>'+({0:'Collect $200 when passing or landing on GO.',4:'Pay 10% of your cash, capped at $200.',10:'Landing here normally is just visiting.',20:'Free Parking has no payout.',30:'Go directly to jail without collecting GO salary.',38:'Pay $75 luxury tax.'}[i]||'Draw a card automatically when you land here.')+'</p>'}<div class="actions"><button onclick="closeModal()">Close</button></div>`)}
-function manageAllowed(i){return !pending&&own(i)===s.turn&&s.winner==null}
-function build(i){if(!manageAllowed(i))return;let g=group(i),x=prop(i);if(s.phase==='debt'||!monopoly(i)||g.ids.some(j=>prop(j).mort)||x.houses>=5||x.houses!==Math.min(...g.ids.map(j=>prop(j).houses))||p().cash<g.cost)return alert('Own the entire unmortgaged color set, build evenly, and keep enough cash. Maximum: one hotel.');x.houses++;p().cash-=g.cost;log(p().name+' builds on '+names[i]+'.');render();details(i)}
-function sellBuilding(i){if(!manageAllowed(i))return;let g=group(i),x=prop(i);if(!x.houses||x.houses!==Math.max(...g.ids.map(j=>prop(j).houses)))return alert('Sell buildings evenly across the color set.');x.houses--;p().cash+=g.cost/2;log(p().name+' sells a building on '+names[i]+'.');afterMoney();details(i)}
-function mortgage(i){if(!manageAllowed(i))return;let x=prop(i),g=group(i);if(x.mort){let cost=Math.ceil(prices[i]*.55);if(p().cash<cost||s.phase==='debt')return alert('Not enough available cash.');p().cash-=cost;x.mort=false;log('Unmortgaged '+names[i]+' for '+money(cost)+'.')}else{if(g&&g.ids.some(j=>prop(j).houses))return alert('Sell all buildings in this color set first.');x.mort=true;p().cash+=prices[i]/2;log('Mortgaged '+names[i]+'.')}afterMoney();details(i)}
-function afterMoney(){settle();if(s.phase!=='debt'&&s.afterDebtMove){let n=s.afterDebtMove;delete s.afterDebtMove;closeModal();move(n)}render()}
-function tradable(i){let g=group(+i);return !g||g.ids.every(j=>prop(j).houses===0)}
-function tradeDialog(){if(pending||s.winner!=null)return;let options=s.players.map((x,i)=>i!==s.turn&&!x.out?`<option value="${i}">${esc(x.name)}</option>`:'').join('');modal(`<h2>Propose a trade</h2><label>Trade with</label><select id="partner" onchange="tradeFields()">${options}</select><div id="tradeFields"></div><div class="actions"><button class="primary" onclick="propose()">Review proposal</button><button onclick="closeModal()">Cancel</button></div>`);tradeFields()}
-function tradeFields(){let id=+$('partner').value;function opts(who,key){return Object.keys(prices).filter(i=>own(i)===who&&tradable(i)).map(i=>`<option value="${i}">${esc(names[i])}${prop(i).mort?' (mortgaged)':''}</option>`).join('')} $('tradeFields').innerHTML=`<p class="help">Select zero or more properties (Ctrl / Cmd on desktop). Buildings must be sold before a color set can be traded. Mortgage status carries over, with no immediate transfer fee in this version.</p><label>You give cash</label><input id="giveCash" type="number" min="0" step="1" value="0"><label>You give properties</label><select id="giveProps" multiple size="4">${opts(s.turn)}</select><label>You receive cash</label><input id="getCash" type="number" min="0" step="1" value="0"><label>You receive properties</label><select id="getProps" multiple size="4">${opts(id)}</select>`}
-function propose(){let t={from:s.turn,to:+$('partner').value,give:+$('giveCash').value,get:+$('getCash').value,a:Array.from($('giveProps').selectedOptions,x=>+x.value),b:Array.from($('getProps').selectedOptions,x=>+x.value)};if(![t.give,t.get].every(n=>Number.isInteger(n)&&n>=0)||t.give>Math.max(0,p().cash)||t.get>s.players[t.to].cash)return alert('Cash amounts must be whole dollars available to each player.');tradeProposal=t;modal(`<h2>${esc(s.players[t.to].name)}: accept this trade?</h2><p>You receive ${money(t.give)}${t.a.map(i=>', '+esc(names[i])).join('')}.</p><p>You give ${money(t.get)}${t.b.map(i=>', '+esc(names[i])).join('')}.</p><div class="actions"><button class="primary" onclick="acceptTrade()">Accept</button><button onclick="closeModal()">Reject</button></div>`)}
-function acceptTrade(){let t=tradeProposal;if(!t)return;s.players[t.from].cash+=t.get-t.give;s.players[t.to].cash+=t.give-t.get;t.a.forEach(i=>s.owners[i]=t.to);t.b.forEach(i=>s.owners[i]=t.from);log(s.players[t.from].name+' trades with '+s.players[t.to].name+'.');tradeProposal=null;closeModal();afterMoney()}
-function bankrupt(){if(s.phase!=='debt')return;if(!confirm('Declare bankruptcy? Your assets go to your creditor, or return to the bank.'))return;let id=s.turn,to=s.creditor;Object.keys(prices).filter(i=>own(i)===id).forEach(i=>{s.owners[i]=to;if(to==null)s.props[i]={houses:0,mort:false}});if(to!=null){s.players[to].cash+=p().cash;s.players[to].cards+=p().cards}p().cash=0;p().cards=0;p().out=true;delete s.afterDebtMove;log(p().name+' is bankrupt.');s.creditor=null;if(alive().length===1){s.winner=s.players.findIndex(x=>!x.out);s.phase='over';log(s.players[s.winner].name+' wins!');render()}else{s.phase='end';endTurn()}}
-function showRules(){if(pending)return;modal(`<h2>How to play</h2><div class="help"><p>Start with $1,500. Roll two dice, buy properties, and collect rent. Doubles grant another roll; three consecutive doubles send you to jail. The last player who is not bankrupt wins.</p><p>Declining a property starts an auction, open to all players. Players bid in sequence or withdraw. A bid must exceed the current bid and fit your cash balance.</p><p>Own a full color set to build evenly. Four houses upgrade to a hotel. Buildings sell at half price; sell evenly. Sell all buildings in a group before mortgaging or trading its properties. Mortgages pay half the purchase price; redeem for that amount plus 10% interest. Mortgaged properties collect no rent.</p><p>Jail: pay $50 or use a card before rolling, or try for doubles on up to three turns. On your third failed attempt, pay $50 and move. Doubles that release you do not grant another roll. You may still collect rent and manage properties in jail.</p><p>When your balance is negative, raise cash by selling buildings, mortgaging, or trading. You cannot roll or end your turn until the debt is settled. If you cannot pay, declare bankruptcy.</p><p>This is a simplified house-rule edition based on your Python board: income tax is 10% of cash capped at $200; luxury tax is $75. Free Parking pays nothing. No fixed turn limit. Cards use two shuffled 12-card decks, with text recorded in the log.</p><p>Simplifications: unlimited building supply, reusable jail-card draws, no immediate mortgage-transfer fees, and properties returned to the bank after bankruptcy are not auctioned. This is local pass-and-play, not online multiplayer. Reloading resumes the last saved state; an unfinished purchase or auction restarts from before that roll.</p></div><button onclick="closeModal()">Back to game</button>`)}
+const names = [
+    'GO',
+    'Mediterranean Avenue',
+    'Community Chest',
+    'Baltic Avenue',
+    'Income Tax',
+    'Reading Railroad',
+    'Oriental Avenue',
+    'Chance',
+    'Vermont Avenue',
+    'Connecticut Avenue',
+    'Jail / Just Visiting',
+    'St. Charles Place',
+    'Electric Company',
+    'States Avenue',
+    'Virginia Avenue',
+    'Pennsylvania Railroad',
+    'St. James Place',
+    'Community Chest',
+    'Tennessee Avenue',
+    'New York Avenue',
+    'Free Parking',
+    'Kentucky Avenue',
+    'Chance',
+    'Indiana Avenue',
+    'Illinois Avenue',
+    'B&O Railroad',
+    'Atlantic Avenue',
+    'Ventnor Avenue',
+    'Water Works',
+    'Marvin Gardens',
+    'Go To Jail',
+    'Pacific Avenue',
+    'North Carolina Avenue',
+    'Community Chest',
+    'Pennsylvania Avenue',
+    'Short Line Railroad',
+    'Chance',
+    'Park Place',
+    'Luxury Tax',
+    'Boardwalk'
+];
+
+const groups = [
+    { color: '#885438', ids: [1, 3], cost: 50 },
+    { color: '#83c9e8', ids: [6, 8, 9], cost: 50 },
+    { color: '#d64f9b', ids: [11, 13, 14], cost: 100 },
+    { color: '#ec9232', ids: [16, 18, 19], cost: 100 },
+    { color: '#db3c41', ids: [21, 23, 24], cost: 150 },
+    { color: '#e6cb37', ids: [26, 27, 29], cost: 150 },
+    { color: '#31935b', ids: [31, 32, 34], cost: 200 },
+    { color: '#3153ae', ids: [37, 39], cost: 200 }
+];
+
+const prices = {
+    1: 60, 3: 60, 5: 200,
+    6: 100, 8: 100, 9: 120,
+    11: 140, 12: 150, 13: 140, 14: 160,
+    15: 200, 16: 180, 18: 180, 19: 200,
+    21: 220, 23: 220, 24: 240, 25: 200,
+    26: 260, 27: 260, 28: 150, 29: 280,
+    31: 300, 32: 300, 34: 320, 35: 200,
+    37: 350, 39: 400
+};
+
+const rents = {
+    1: [2, 10, 30, 90, 160, 250],
+    3: [4, 20, 60, 180, 320, 450],
+    6: [6, 30, 90, 270, 400, 550],
+    8: [6, 30, 90, 270, 400, 550],
+    9: [8, 40, 100, 300, 450, 600],
+    11: [10, 50, 150, 450, 625, 750],
+    13: [10, 50, 150, 450, 625, 750],
+    14: [12, 60, 180, 500, 700, 900],
+    16: [14, 70, 200, 550, 750, 950],
+    18: [14, 70, 200, 550, 750, 950],
+    19: [16, 80, 220, 600, 800, 1000],
+    21: [18, 90, 250, 700, 875, 1050],
+    23: [18, 90, 250, 700, 875, 1050],
+    24: [20, 100, 300, 750, 925, 1100],
+    26: [22, 110, 330, 800, 975, 1150],
+    27: [22, 110, 330, 800, 975, 1150],
+    29: [24, 120, 360, 850, 1025, 1200],
+    31: [26, 130, 390, 900, 1100, 1275],
+    32: [26, 130, 390, 900, 1100, 1275],
+    34: [28, 150, 450, 1000, 1200, 1400],
+    37: [35, 175, 500, 1100, 1300, 1500],
+    39: [50, 200, 600, 1400, 1700, 2000]
+};
+
+const colors = [
+    '#d34c56', '#3387cf', '#a56cdb',
+    '#d28e22', '#219a83', '#c06499'
+];
+
+let s = null;
+let pending = null;
+let tradeProposal = null;
+
+const $ = id => document.getElementById(id);
+const money = n => '$' + n;
+const p = () => s.players[s.turn];
+const group = i => groups.find(g => g.ids.includes(Number(i)));
+const own = i => s.owners[i];
+const prop = i => s.props[i];
+const owner = i => s.players[own(i)];
+const alive = () => s.players.filter(player => !player.out);
+
+function esc(text) {
+    return String(text).replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[character]));
+}
+
+function save() {
+    try {
+        localStorage.setItem('monopoly-friends-v1', JSON.stringify(s));
+    } catch (error) {}
+}
+
+function render() {
+    save();
+}
+
+function log(text) {
+    s.log.unshift(text);
+    s.log = s.log.slice(0, 150);
+}
+
+function modal(body) {
+    $('modalBody').innerHTML = body;
+
+    if (!$('modal').open) {
+        $('modal').showModal();
+    }
+}
+
+function closeModal() {
+    $('modal').close();
+}
+
+$('modal').addEventListener('cancel', event => {
+    event.preventDefault();
+});
+
+function newGame() {
+    modal(`
+        <h2>New game</h2>
+
+        <label>Players</label>
+
+        <select id="count" onchange="nameFields()">
+            ${[2, 3, 4, 5, 6].map(n => `<option>${n}</option>`).join('')}
+        </select>
+
+        <div id="nameFields"></div>
+
+        <button onclick="start()">Start game</button>
+    `);
+
+    nameFields();
+}
+
+function nameFields() {
+    $('nameFields').innerHTML = Array.from(
+        { length: Number($('count').value) },
+        (_, index) => `
+            <input
+                id="name${index}"
+                maxlength="24"
+                placeholder="Player ${index + 1}"
+            >
+        `
+    ).join('');
+}
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+
+    return array;
+}
+
+function start() {
+    s = {
+        players: Array.from(
+            { length: Number($('count').value) },
+            (_, index) => ({
+                name: $('name' + index).value.trim() || 'Player ' + (index + 1),
+                cash: 1500,
+                pos: 0,
+                jail: false,
+                tries: 0,
+                cards: 0,
+                out: false,
+                color: colors[index]
+            })
+        ),
+        turn: 0,
+        owners: {},
+        props: {},
+        phase: 'roll',
+        doubles: 0,
+        dice: [1, 1],
+        lastRoll: 2,
+        creditor: null,
+        log: [],
+        chance: shuffle(Array.from({ length: 12 }, (_, i) => i)),
+        chest: shuffle(Array.from({ length: 12 }, (_, i) => i)),
+        winner: null
+    };
+
+    for (const i of Object.keys(prices)) {
+        s.owners[i] = null;
+        s.props[i] = {
+            houses: 0,
+            mort: false
+        };
+    }
+
+    pending = null;
+    tradeProposal = null;
+
+    closeModal();
+    log('Game started. Everyone receives $1,500.');
+    render();
+}
+
+function monopoly(i, playerId = s.turn) {
+    const set = group(i);
+
+    return Boolean(
+        set && set.ids.every(index => own(index) === playerId)
+    );
+}
+
+function rent(i, total = s.lastRoll) {
+    if (prop(i).mort) {
+        return 0;
+    }
+
+    if ([5, 15, 25, 35].includes(i)) {
+        const count = [5, 15, 25, 35].filter(
+            index => own(index) === own(i)
+        ).length;
+
+        return 25 * 2 ** (count - 1);
+    }
+
+    if ([12, 28].includes(i)) {
+        const ownsBoth = [12, 28].every(
+            index => own(index) === own(i)
+        );
+
+        return total * (ownsBoth ? 10 : 4);
+    }
+
+    const houses = prop(i).houses;
+    const doubleBase = houses === 0 && monopoly(i, own(i));
+
+    return rents[i][houses] * (doubleBase ? 2 : 1);
+}
+
+function debit(amount, recipient = null) {
+    p().cash -= amount;
+
+    if (recipient !== null) {
+        s.players[recipient].cash += amount;
+    }
+
+    if (p().cash < 0) {
+        s.creditor = recipient;
+        s.resume = s.phase;
+        s.phase = 'debt';
+    }
+}
+
+function settle() {
+    if (s.phase === 'debt' && p().cash >= 0) {
+        s.phase = s.resume || 'end';
+        s.creditor = null;
+        log(p().name + ' settled the debt.');
+    }
+}
+
+function sendJail() {
+    p().pos = 10;
+    p().jail = true;
+    p().tries = 0;
+
+    s.doubles = 0;
+    s.phase = 'end';
+
+    log(p().name + ' goes directly to jail.');
+}
+
+function showJailChoices() {
+    if (!p().jail || s.phase !== 'roll') {
+        return;
+    }
+
+    const jailTurn = p().tries + 1;
+
+    modal(`
+        <h2>${esc(p().name)} is in jail</h2>
+
+        <p>Jail turn ${jailTurn} of 3.</p>
+
+        <p>
+            Pay $50 to leave now, then roll normally,
+            or try to roll doubles to leave for free.
+        </p>
+
+        ${
+            jailTurn === 3
+                ? `<p>
+                    If you fail to roll doubles this turn,
+                    you must pay $50 and move using that roll.
+                   </p>`
+                : ''
+        }
+
+        <div class="actions">
+            <button
+                class="primary"
+                onclick="bail()"
+                ${p().cash < 50 ? 'disabled' : ''}
+            >
+                Pay $50 and leave
+            </button>
+
+            <button onclick="roll()">
+                Try rolling doubles
+            </button>
+
+            ${
+                p().cards > 0
+                    ? `<button onclick="useCard()">
+                           Use jail card
+                       </button>`
+                    : ''
+            }
+
+            <button onclick="closeModal()">
+                Manage properties first
+            </button>
+        </div>
+
+        ${
+            p().cash < 50
+                ? `<p>
+                    You need $50 in cash to pay bail.
+                    Manage your properties to raise money.
+                   </p>`
+                : ''
+        }
+    `);
+}
+
+function move(amount) {
+    const oldPosition = p().pos;
+
+    if (oldPosition + amount >= 40) {
+        p().cash += 200;
+        log(p().name + ' collects $200 for passing GO.');
+    }
+
+    p().pos = (oldPosition + amount) % 40;
+
+    log(p().name + ' lands on ' + names[p().pos] + '.');
+    land();
+}
+
+function advance(destination) {
+    move((destination - p().pos + 40) % 40);
+}
+
+function roll() {
+    if (s.phase !== 'roll' || pending) {
+        return;
+    }
+
+    if (p().jail) {
+        closeModal();
+    }
+
+    s.dice = [
+        1 + Math.floor(Math.random() * 6),
+        1 + Math.floor(Math.random() * 6)
+    ];
+
+    s.lastRoll = s.dice[0] + s.dice[1];
+
+    const double = s.dice[0] === s.dice[1];
+
+    log(p().name + ' rolls ' + s.dice.join(' + ') + '.');
+
+    if (p().jail) {
+        p().tries++;
+        s.phase = 'end';
+
+        if (double) {
+            p().jail = false;
+            p().tries = 0;
+
+            log('Doubles! Released from jail.');
+            move(s.lastRoll);
+        } else if (p().tries === 3) {
+            p().jail = false;
+            p().tries = 0;
+
+            debit(50);
+            log('Third failed jail attempt: pays $50 and moves.');
+
+            if (s.phase === 'debt') {
+                s.afterDebtMove = s.lastRoll;
+            } else {
+                move(s.lastRoll);
+            }
+        } else {
+            log('No doubles. Stays in jail.');
+        }
+    } else {
+        if (double) {
+            s.doubles++;
+        } else {
+            s.doubles = 0;
+        }
+
+        if (s.doubles === 3) {
+            sendJail();
+        } else {
+            s.phase = double ? 'roll' : 'end';
+            move(s.lastRoll);
+        }
+    }
+
+    render();
+}
+
+function land() {
+    const i = p().pos;
+
+    if (i === 30) {
+        sendJail();
+        return;
+    }
+
+    if (i === 4) {
+        const tax = Math.min(
+            200,
+            Math.floor(Math.max(0, p().cash) * 0.10)
+        );
+
+        debit(tax);
+        log('Income tax: ' + money(tax));
+        return;
+    }
+
+    if (i === 38) {
+        debit(75);
+        log('Luxury tax: $75');
+        return;
+    }
+
+    if ([2, 17, 33].includes(i)) {
+        card('chest');
+        return;
+    }
+
+    if ([7, 22, 36].includes(i)) {
+        card('chance');
+        return;
+    }
+
+    if (!prices[i]) {
+        return;
+    }
+
+    if (own(i) === null) {
+        pending = {
+            type: 'purchase',
+            i
+        };
+
+        purchasePrompt(i);
+    } else if (own(i) !== s.turn && !prop(i).mort) {
+        const amount = rent(i);
+
+        debit(amount, own(i));
+
+        log(
+            'Pays ' + money(amount) +
+            ' rent to ' + owner(i).name + '.'
+        );
+    }
+}
+
+function purchasePrompt(i) {
+    modal(`
+        <h2>${esc(names[i])}</h2>
+
+        <p>Purchase price: ${money(prices[i])}</p>
+        <p>Your cash: ${money(p().cash)}</p>
+
+        <div class="actions">
+            <button
+                class="primary"
+                onclick="buy(${i})"
+                ${p().cash < prices[i] ? 'disabled' : ''}
+            >
+                Buy property
+            </button>
+
+            <button onclick="auctionStart(${i})">
+                Auction instead
+            </button>
+        </div>
+
+        <p>
+            If you choose to auction this property,
+            you cannot bid in that auction.
+        </p>
+    `);
+}
+
+function buy(i) {
+    if (
+        !pending ||
+        pending.type !== 'purchase' ||
+        pending.i !== i ||
+        p().cash < prices[i]
+    ) {
+        return;
+    }
+
+    p().cash -= prices[i];
+    s.owners[i] = s.turn;
+
+    log(
+        p().name + ' buys ' + names[i] +
+        ' for ' + money(prices[i]) + '.'
+    );
+
+    pending = null;
+    closeModal();
+    render();
+}
+
+function auctionStart(i) {
+    if (
+        !pending ||
+        pending.type !== 'purchase' ||
+        pending.i !== i
+    ) {
+        return;
+    }
+
+    const starter = s.turn;
+
+    pending = {
+        type: 'auction',
+        i,
+        bid: 0,
+        high: null,
+        active: s.players
+            .map((player, index) =>
+                index !== starter &&
+                !player.out &&
+                player.cash > 0
+                    ? index
+                    : null
+            )
+            .filter(index => index !== null),
+        who: 0
+    };
+
+    log(
+        s.players[starter].name +
+        ' starts an auction for ' + names[i] +
+        ' and cannot bid.'
+    );
+
+    auctionView();
+}
+
+function auctionView() {
+    const auction = pending;
+
+    if (!auction || auction.type !== 'auction') {
+        return;
+    }
+
+    const finished =
+        auction.active.length === 0 ||
+        (
+            auction.active.length === 1 &&
+            auction.high === auction.active[0]
+        );
+
+    if (finished) {
+        if (auction.high !== null) {
+            const winner = s.players[auction.high];
+
+            winner.cash -= auction.bid;
+            s.owners[auction.i] = auction.high;
+
+            log(
+                winner.name + ' wins ' + names[auction.i] +
+                ' at auction for ' + money(auction.bid) + '.'
+            );
+        } else {
+            log(names[auction.i] + ' remains unowned.');
+        }
+
+        pending = null;
+        closeModal();
+        render();
+        return;
+    }
+
+    auction.who %= auction.active.length;
+
+    let bidder = auction.active[auction.who];
+
+    if (bidder === auction.high) {
+        auction.who =
+            (auction.who + 1) % auction.active.length;
+
+        bidder = auction.active[auction.who];
+    }
+
+    modal(`
+        <h2>Auction: ${esc(names[auction.i])}</h2>
+
+        <p>
+            ${esc(p().name)} started this auction and cannot bid.
+        </p>
+
+        <p>
+            Highest bid: ${money(auction.bid)}
+            ${
+                auction.high !== null
+                    ? 'by ' + esc(s.players[auction.high].name)
+                    : ''
+            }
+        </p>
+
+        <h3>${esc(s.players[bidder].name)} to bid</h3>
+
+        <p>Cash: ${money(s.players[bidder].cash)}</p>
+
+        <input
+            type="number"
+            id="bid"
+            min="${auction.bid + 1}"
+            step="1"
+            value="${Math.min(
+                auction.bid + 10,
+                s.players[bidder].cash
+            )}"
+        >
+
+        <div class="actions">
+            <button onclick="auctionBid()">Bid</button>
+            <button onclick="auctionPass()">Withdraw</button>
+        </div>
+    `);
+}
+
+function auctionBid() {
+    const auction = pending;
+
+    if (!auction || auction.type !== 'auction') {
+        return;
+    }
+
+    const bidder = auction.active[auction.who];
+    const amount = Number($('bid').value);
+
+    if (
+        !Number.isInteger(amount) ||
+        amount <= auction.bid ||
+        amount > s.players[bidder].cash
+    ) {
+        return alert(
+            'Enter a whole-dollar bid above the current bid, ' +
+            'within your cash balance.'
+        );
+    }
+
+    auction.bid = amount;
+    auction.high = bidder;
+    auction.who++;
+
+    auctionView();
+}
+
+function auctionPass() {
+    if (!pending || pending.type !== 'auction') {
+        return;
+    }
+
+    pending.active.splice(pending.who, 1);
+    auctionView();
+}
+
+function bail() {
+    if (!p().jail || s.phase !== 'roll' || pending) {
+        return;
+    }
+
+    if (p().cash < 50) {
+        return alert('You need $50 to pay bail.');
+    }
+
+    p().cash -= 50;
+    p().jail = false;
+    p().tries = 0;
+
+    closeModal();
+
+    log(
+        p().name +
+        ' pays $50 to leave jail. Roll the dice to move.'
+    );
+
+    render();
+}
+
+function useCard() {
+    if (
+        !p().jail ||
+        !p().cards ||
+        s.phase !== 'roll' ||
+        pending
+    ) {
+        return;
+    }
+
+    p().cards--;
+    p().jail = false;
+    p().tries = 0;
+
+    closeModal();
+
+    log(
+        p().name +
+        ' uses a Get Out of Jail Free card. Roll the dice to move.'
+    );
+
+    render();
+}
+
+function endTurn() {
+    if (s.phase !== 'end' || pending) {
+        return;
+    }
+
+    do {
+        s.turn = (s.turn + 1) % s.players.length;
+    } while (p().out);
+
+    s.doubles = 0;
+    s.phase = 'roll';
+
+    render();
+
+    if (p().jail) {
+        showJailChoices();
+    }
+}
+
+function card(deck) {
+    const index = s[deck].shift();
+    s[deck].push(index);
+
+    let text = '';
+    let action = () => {};
+
+    if (deck === 'chance') {
+        switch (index) {
+            case 0:
+                text = 'Advance to GO. Collect $200.';
+                action = () => {
+                    p().cash += 200;
+                    p().pos = 0;
+                };
+                break;
+
+            case 1:
+                text = 'Advance to Illinois Avenue.';
+                action = () => advance(24);
+                break;
+
+            case 2:
+                text = 'Advance to St. Charles Place.';
+                action = () => advance(11);
+                break;
+
+            case 3:
+                text = 'Take a trip to Reading Railroad.';
+                action = () => advance(5);
+                break;
+
+            case 4:
+                text = 'Advance to Boardwalk.';
+                action = () => advance(39);
+                break;
+
+            case 5:
+                text = 'Go back three spaces.';
+                action = () => {
+                    p().pos = (p().pos + 37) % 40;
+                    land();
+                };
+                break;
+
+            case 6:
+                text = 'Go directly to jail.';
+                action = sendJail;
+                break;
+
+            case 7:
+                text = 'Bank pays you a dividend of $50.';
+                action = () => p().cash += 50;
+                break;
+
+            case 8:
+                text = 'Pay a $15 speeding fine.';
+                action = () => debit(15);
+                break;
+
+            case 9:
+                text = 'Get Out of Jail Free.';
+                action = () => p().cards++;
+                break;
+
+            case 10:
+                text = 'Your building loan matures. Collect $150.';
+                action = () => p().cash += 150;
+                break;
+
+            case 11:
+                text = 'Repairs: $25 per house, $100 per hotel.';
+                action = () => repairs(25, 100);
+                break;
+        }
+    } else {
+        switch (index) {
+            case 0:
+                text = 'Advance to GO. Collect $200.';
+                action = () => {
+                    p().cash += 200;
+                    p().pos = 0;
+                };
+                break;
+
+            case 1:
+                text = 'Bank error in your favor. Collect $200.';
+                action = () => p().cash += 200;
+                break;
+
+            case 2:
+                text = 'Doctor’s fee. Pay $50.';
+                action = () => debit(50);
+                break;
+
+            case 3:
+                text = 'From sale of stock, collect $50.';
+                action = () => p().cash += 50;
+                break;
+
+            case 4:
+                text = 'Get Out of Jail Free.';
+                action = () => p().cards++;
+                break;
+
+            case 5:
+                text = 'Go directly to jail.';
+                action = sendJail;
+                break;
+
+            case 6:
+                text = 'Holiday fund matures. Collect $100.';
+                action = () => p().cash += 100;
+                break;
+
+            case 7:
+                text = 'Income tax refund. Collect $20.';
+                action = () => p().cash += 20;
+                break;
+
+            case 8:
+                text = 'Pay hospital fees of $100.';
+                action = () => debit(100);
+                break;
+
+            case 9:
+                text = 'Pay school fees of $50.';
+                action = () => debit(50);
+                break;
+
+            case 10:
+                text = 'You inherit $100.';
+                action = () => p().cash += 100;
+                break;
+
+            case 11:
+                text = 'Street repairs: $40 per house, $115 per hotel.';
+                action = () => repairs(40, 115);
+                break;
+        }
+    }
+
+    log(
+        (deck === 'chance' ? 'Chance: ' : 'Community Chest: ') +
+        text
+    );
+
+    action();
+}
+
+function repairs(houseCost, hotelCost) {
+    const amount = Object.keys(prices)
+        .filter(i => own(i) === s.turn)
+        .reduce((total, i) => {
+            const buildings = prop(i).houses;
+
+            return total + (
+                buildings === 5
+                    ? hotelCost
+                    : buildings * houseCost
+            );
+        }, 0);
+
+    debit(amount);
+    log('Repair bill: ' + money(amount));
+}
+
+function details(i) {
+    if (pending) {
+        return;
+    }
+
+    const set = group(i);
+    const ownerId = own(i);
+    const property = prop(i);
+
+    let body = `<h2>${esc(names[i])}</h2>`;
+
+    if (prices[i]) {
+        body += `
+            <p>
+                Price: ${money(prices[i])}
+                · Owner:
+                ${ownerId == null ? 'Bank' : esc(owner(i).name)}
+            </p>
+
+            <p>
+                Mortgage value: ${money(prices[i] / 2)}
+                ${property.mort ? ' · Currently mortgaged' : ''}
+            </p>
+        `;
+
+        if (set) {
+            body += `
+                <p>
+                    ${
+                        rents[i].map((amount, index) => {
+                            const label =
+                                index === 0 ? 'Base' :
+                                index === 5 ? 'Hotel' :
+                                index + ' house(s)';
+
+                            return label + ': ' + money(amount);
+                        }).join(' · ')
+                    }
+                </p>
+
+                <p>
+                    Building cost: ${money(set.cost)} each.
+                    Full unmortgaged color ownership allows building.
+                    Unimproved full sets charge double base rent.
+                </p>
+            `;
+        } else if ([5, 15, 25, 35].includes(i)) {
+            body += `
+                <p>
+                    Railroad rent: $25 / $50 / $100 / $200
+                    for 1 / 2 / 3 / 4 railroads owned.
+                </p>
+            `;
+        } else {
+            body += `
+                <p>
+                    Utility rent: 4× the dice total,
+                    or 10× when both utilities are owned.
+                </p>
+            `;
+        }
+
+        if (ownerId === s.turn && s.winner == null) {
+            body += `
+                <div class="actions">
+                    ${
+                        set
+                            ? `<button onclick="build(${i})">
+                                   Buy house / hotel
+                               </button>
+                               <button onclick="sellBuilding(${i})">
+                                   Sell building
+                               </button>`
+                            : ''
+                    }
+
+                    <button onclick="mortgage(${i})">
+                        ${property.mort ? 'Unmortgage' : 'Mortgage'}
+                    </button>
+                </div>
+            `;
+        }
+    } else {
+        const descriptions = {
+            0: 'Collect $200 when passing or landing on GO.',
+            4: 'Pay 10% of your cash, capped at $200.',
+            10: 'Landing here normally is just visiting.',
+            20: 'Free Parking has no payout.',
+            30: 'Go directly to jail without collecting GO salary.',
+            38: 'Pay $75 luxury tax.'
+        };
+
+        body += `
+            <p>
+                ${
+                    descriptions[i] ||
+                    'Draw a card automatically when you land here.'
+                }
+            </p>
+        `;
+    }
+
+    body += `
+        <div class="actions">
+            <button onclick="closeModal()">Close</button>
+        </div>
+    `;
+
+    modal(body);
+}
+
+function manageAllowed(i) {
+    return !pending && own(i) === s.turn && s.winner == null;
+}
+
+function build(i) {
+    if (!manageAllowed(i)) {
+        return;
+    }
+
+    const set = group(i);
+    const property = prop(i);
+
+    if (!set) {
+        return;
+    }
+
+    const minimum = Math.min(
+        ...set.ids.map(index => prop(index).houses)
+    );
+
+    if (
+        s.phase === 'debt' ||
+        !monopoly(i) ||
+        set.ids.some(index => prop(index).mort) ||
+        property.houses >= 5 ||
+        property.houses !== minimum ||
+        p().cash < set.cost
+    ) {
+        return alert(
+            'Own the whole unmortgaged color set, build evenly, ' +
+            'and keep enough cash. Maximum: one hotel.'
+        );
+    }
+
+    property.houses++;
+    p().cash -= set.cost;
+
+    log(p().name + ' builds on ' + names[i] + '.');
+
+    render();
+    details(i);
+}
+
+function sellBuilding(i) {
+    if (!manageAllowed(i)) {
+        return;
+    }
+
+    const set = group(i);
+    const property = prop(i);
+
+    if (!set) {
+        return;
+    }
+
+    const maximum = Math.max(
+        ...set.ids.map(index => prop(index).houses)
+    );
+
+    if (!property.houses || property.houses !== maximum) {
+        return alert('Sell buildings evenly across the color set.');
+    }
+
+    property.houses--;
+    p().cash += set.cost / 2;
+
+    log(p().name + ' sells a building on ' + names[i] + '.');
+
+    afterMoney();
+    details(i);
+}
+
+function mortgage(i) {
+    if (!manageAllowed(i)) {
+        return;
+    }
+
+    const property = prop(i);
+    const set = group(i);
+
+    if (property.mort) {
+        const cost = Math.ceil(prices[i] * 0.55);
+
+        if (p().cash < cost || s.phase === 'debt') {
+            return alert('Not enough available cash.');
+        }
+
+        p().cash -= cost;
+        property.mort = false;
+
+        log('Unmortgaged ' + names[i] + ' for ' + money(cost) + '.');
+    } else {
+        if (set && set.ids.some(index => prop(index).houses)) {
+            return alert('Sell all buildings in this color set first.');
+        }
+
+        property.mort = true;
+        p().cash += prices[i] / 2;
+
+        log('Mortgaged ' + names[i] + '.');
+    }
+
+    afterMoney();
+    details(i);
+}
+
+function afterMoney() {
+    settle();
+
+    if (s.phase !== 'debt' && s.afterDebtMove) {
+        const amount = s.afterDebtMove;
+
+        delete s.afterDebtMove;
+
+        closeModal();
+        move(amount);
+    }
+
+    render();
+}
+
+function tradable(i) {
+    const set = group(i);
+
+    return !set || set.ids.every(index => prop(index).houses === 0);
+}
+
+function tradeDialog() {
+    if (pending || s.winner != null) {
+        return;
+    }
+
+    const options = s.players.map((player, index) =>
+        index !== s.turn && !player.out
+            ? `<option value="${index}">${esc(player.name)}</option>`
+            : ''
+    ).join('');
+
+    modal(`
+        <h2>Propose a trade</h2>
+
+        <label>Trade with</label>
+
+        <select id="partner" onchange="tradeFields()">
+            ${options}
+        </select>
+
+        <div id="tradeFields"></div>
+
+        <div class="actions">
+            <button class="primary" onclick="propose()">
+                Review proposal
+            </button>
+
+            <button onclick="closeModal()">Cancel</button>
+        </div>
+    `);
+
+    tradeFields();
+}
+
+function tradeFields() {
+    const partner = Number($('partner').value);
+
+    function options(playerId) {
+        return Object.keys(prices)
+            .filter(i => own(i) === playerId && tradable(i))
+            .map(i => `
+                <option value="${i}">
+                    ${esc(names[i])}
+                    ${prop(i).mort ? '(mortgaged)' : ''}
+                </option>
+            `)
+            .join('');
+    }
+
+    $('tradeFields').innerHTML = `
+        <p class="help">
+            Select zero or more properties.
+            Hold Ctrl / Cmd to select multiple on desktop.
+            Sell buildings before trading properties in that color set.
+            Mortgage status carries over without an immediate transfer fee.
+        </p>
+
+        <label>You give cash</label>
+        <input id="giveCash" type="number" min="0" step="1" value="0">
+
+        <label>You give properties</label>
+        <select id="giveProps" multiple size="4">
+            ${options(s.turn)}
+        </select>
+
+        <label>You receive cash</label>
+        <input id="getCash" type="number" min="0" step="1" value="0">
+
+        <label>You receive properties</label>
+        <select id="getProps" multiple size="4">
+            ${options(partner)}
+        </select>
+    `;
+}
+
+function propose() {
+    const proposal = {
+        from: s.turn,
+        to: Number($('partner').value),
+        give: Number($('giveCash').value),
+        get: Number($('getCash').value),
+        a: Array.from(
+            $('giveProps').selectedOptions,
+            option => Number(option.value)
+        ),
+        b: Array.from(
+            $('getProps').selectedOptions,
+            option => Number(option.value)
+        )
+    };
+
+    if (
+        !s.players[proposal.to] ||
+        proposal.to === s.turn ||
+        s.players[proposal.to].out
+    ) {
+        return alert('Choose another active player.');
+    }
+
+    if (
+        ![proposal.give, proposal.get].every(
+            amount => Number.isInteger(amount) && amount >= 0
+        ) ||
+        proposal.give > Math.max(0, p().cash) ||
+        proposal.get > s.players[proposal.to].cash
+    ) {
+        return alert(
+            'Cash amounts must be whole dollars available to each player.'
+        );
+    }
+
+    tradeProposal = proposal;
+
+    modal(`
+        <h2>
+            ${esc(s.players[proposal.to].name)}:
+            accept this trade?
+        </h2>
+
+        <p>
+            You receive ${money(proposal.give)}
+            ${proposal.a.map(i => ', ' + esc(names[i])).join('')}.
+        </p>
+
+        <p>
+            You give ${money(proposal.get)}
+            ${proposal.b.map(i => ', ' + esc(names[i])).join('')}.
+        </p>
+
+        <div class="actions">
+            <button class="primary" onclick="acceptTrade()">
+                Accept
+            </button>
+
+            <button onclick="closeModal()">Reject</button>
+        </div>
+    `);
+}
+
+function acceptTrade() {
+    const proposal = tradeProposal;
+
+    if (!proposal) {
+        return;
+    }
+
+    s.players[proposal.from].cash += proposal.get - proposal.give;
+    s.players[proposal.to].cash += proposal.give - proposal.get;
+
+    proposal.a.forEach(i => s.owners[i] = proposal.to);
+    proposal.b.forEach(i => s.owners[i] = proposal.from);
+
+    log(
+        s.players[proposal.from].name +
+        ' trades with ' +
+        s.players[proposal.to].name + '.'
+    );
+
+    tradeProposal = null;
+
+    closeModal();
+    afterMoney();
+}
+
+function bankrupt() {
+    if (s.phase !== 'debt') {
+        return;
+    }
+
+    if (!confirm('Declare bankruptcy?')) {
+        return;
+    }
+
+    const playerId = s.turn;
+    const recipient = s.creditor;
+
+    Object.keys(prices)
+        .filter(i => own(i) === playerId)
+        .forEach(i => {
+            s.owners[i] = recipient;
+
+            if (recipient === null) {
+                s.props[i] = {
+                    houses: 0,
+                    mort: false
+                };
+            }
+        });
+
+    if (recipient !== null) {
+        s.players[recipient].cash += p().cash;
+        s.players[recipient].cards += p().cards;
+    }
+
+    p().cash = 0;
+    p().cards = 0;
+    p().out = true;
+
+    delete s.afterDebtMove;
+
+    log(p().name + ' is bankrupt.');
+
+    s.creditor = null;
+
+    if (alive().length === 1) {
+        s.winner = s.players.findIndex(player => !player.out);
+        s.phase = 'over';
+
+        log(s.players[s.winner].name + ' wins!');
+        render();
+    } else {
+        s.phase = 'end';
+        endTurn();
+    }
+}
+
+// Keep this initialization line unchanged: the server replaces it.
+try{let raw=localStorage.getItem('monopoly-friends-v1');if(raw)s=JSON.parse(raw)}catch(e){}if(s)render();else newGame();
+</script>
+</body>
+</html>se you do not grant another roll. You may still collect rent and manage properties in jail.</p><p>When your balance is negative, raise cash by selling buildings, mortgaging, or trading. You cannot roll or end your turn until the debt is settled. If you cannot pay, declare bankruptcy.</p><p>This is a simplified house-rule edition based on your Python board: income tax is 10% of cash capped at $200; luxury tax is $75. Free Parking pays nothing. No fixed turn limit. Cards use two shuffled 12-card decks, with text recorded in the log.</p><p>Simplifications: unlimited building supply, reusable jail-card draws, no immediate mortgage-transfer fees, and properties returned to the bank after bankruptcy are not auctioned. This is local pass-and-play, not online multiplayer. Reloading resumes the last saved state; an unfinished purchase or auction restarts from before that roll.</p></div><button onclick="closeModal()">Back to game</button>`)}
 try{let raw=localStorage.getItem('monopoly-friends-v1');if(raw)s=JSON.parse(raw)}catch(e){}if(s)render();else newGame();
 </script></body></html>
